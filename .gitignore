@@ -1,0 +1,15 @@
+# Cada proyecto es un repositorio independiente
+/local-k8s-lab/
+/infra-azure-terraform/
+/online-boutique-ci/
+/platform-gitops/
+/observability-stack/
+/sre-reliability-lab/
+/k8s-security-policies/
+/dr-finops/
+/infra-aws-terraform/
+
+# Local
+.DS_Store
+*.log
+.env
