@@ -1,0 +1,111 @@
+id: P5
+title: "sre-reliability-lab — prácticas SRE"
+repo: sre-reliability-lab
+milestone: "Fase 3 — Confiabilidad y seguridad"
+labels: ["area:sre"]
+objective: |
+  Operar OpenTelemetry Demo como un equipo SRE: objetivos de confiabilidad
+  medibles, alertas por consumo de error budget, pruebas de carga y caos,
+  y gestión de incidentes con runbooks y postmortems.
+done_when:
+  - "Al menos 3 postmortems de incidentes simulados"
+  - "Informe de error budget de un periodo"
+learn: ["SLI, SLO, SLA y error budget", "Burn rate multi-ventana", "Pruebas de carga", "Chaos engineering", "Gestión de incidentes y postmortems blameless"]
+tasks:
+  - key: P5-01
+    title: "Desplegar OpenTelemetry Demo en AKS"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:sre", "area:gitops"]
+    why: "Trae instrumentación completa y fallas activables por feature flag para simular incidentes."
+    learn: ["flagd y feature flags", "Arquitectura del demo (Kafka, Postgres, Valkey)"]
+    steps:
+      - "Node pool temporal más grande (actualiza P1) y recuerda destruirlo al terminar"
+      - "Despliega el chart vía Argo CD enviando telemetría a tu stack de P4"
+      - "Recorre la tienda y la UI de flagd"
+    acceptance: ["Demo funcionando con trazas en tu Tempo"]
+  - key: P5-02
+    title: "Definir SLIs y SLOs"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:sre", "area:docs"]
+    why: "Sin un objetivo explícito no se puede decidir si el sistema está suficientemente bien."
+    learn: ["Customer journeys críticos", "SLI de disponibilidad y latencia", "Ventanas de 28/30 días"]
+    steps:
+      - "Identifica 2 journeys: navegar catálogo y checkout"
+      - "Define para cada uno SLI (fórmula PromQL), SLO (ej. 99.5%) y ventana"
+      - "Calcula el error budget en minutos"
+      - "Documento `docs/slo.md` con la política de error budget (qué pasa si se agota)"
+    acceptance: ["`docs/slo.md` revisado y justificado"]
+  - key: P5-03
+    title: "SLOs como código con Sloth y alertas por burn rate"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:sre", "area:observabilidad"]
+    why: "Alertar por umbrales fijos genera ruido; alertar por consumo de budget avisa solo cuando importa."
+    learn: ["Burn rate", "Alertas multi-ventana multi-burn-rate (Google SRE Workbook)"]
+    steps:
+      - "Instala Sloth y define los SLOs en YAML"
+      - "Genera las PrometheusRule y despliégalas por GitOps"
+      - "Dashboard de SLO con budget restante"
+      - "Activa una falla leve y observa el burn rate"
+    acceptance: ["Alerta de page y de ticket disparadas en una prueba"]
+    resources: ["https://sre.google/workbook/alerting-on-slos/"]
+  - key: P5-04
+    title: "Pruebas de carga con k6"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:sre"]
+    why: "Conocer la capacidad antes de que la descubran los usuarios."
+    learn: ["Baseline, estrés, soak y spike", "Thresholds en k6", "Cuellos de botella"]
+    steps:
+      - "Script k6 del journey de checkout con thresholds alineados al SLO"
+      - "Ejecuta baseline, estrés y soak (corto) y guarda resultados"
+      - "Identifica el primer servicio en saturarse usando P4"
+      - "Informe `docs/capacidad.md`"
+    acceptance: ["Informe con punto de quiebre y cuello de botella identificado"]
+  - key: P5-05
+    title: "Experimentos de caos con Chaos Mesh"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:sre"]
+    why: "Probar hipótesis de resiliencia de forma controlada en vez de esperar al fallo real."
+    learn: ["Hipótesis, radio de impacto y abort", "PodChaos, NetworkChaos, StressChaos"]
+    steps:
+      - "Instala Chaos Mesh vía GitOps"
+      - "Por experimento escribe hipótesis → ejecuta → resultado"
+      - "Mata pods de cart, agrega 300 ms de latencia a currency, estresa CPU de un nodo"
+      - "Registra en `docs/caos.md` qué hipótesis fallaron"
+    acceptance: ["3 experimentos documentados con hipótesis y resultado"]
+  - key: P5-06
+    title: "Runbooks para las alertas"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:sre", "area:docs"]
+    why: "A las 3 a. m. nadie debe improvisar el diagnóstico."
+    steps:
+      - "Un runbook por alerta: síntoma, impacto, diagnóstico paso a paso, mitigación, escalamiento"
+      - "Enlaza cada `runbook_url` de las alertas a su archivo"
+    acceptance: ["Todas las alertas tienen runbook enlazado"]
+  - key: P5-07
+    title: "Game days: 3 incidentes simulados con postmortem"
+    who: "Tú"
+    estimate: "4–6 h"
+    labels: ["area:sre"]
+    why: "Es la evidencia más fuerte de mentalidad SRE en un portafolio."
+    learn: ["Roles de incidente (IC, comunicaciones)", "Línea de tiempo", "Postmortem blameless y action items"]
+    steps:
+      - "Pide a alguien (o usa un script aleatorio) que active una falla de flagd sin decirte cuál (ej. paymentFailure, adHighCpu, kafkaQueueProblems)"
+      - "Responde usando solo alertas, dashboards y runbooks; registra la línea de tiempo"
+      - "Mitiga, luego escribe el postmortem con la plantilla (resumen, impacto, timeline, causa raíz, qué salió bien/mal, acciones)"
+      - "Crea issues para los action items"
+      - "Repite con 3 fallas distintas"
+    acceptance: ["3 postmortems en `postmortems/`", "Métricas MTTD y MTTR por incidente"]
+  - key: P5-08
+    title: "Informe de error budget y README"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:sre", "area:docs"]
+    why: "Cierra el ciclo: decisiones basadas en el budget."
+    steps: ["Informe del periodo: budget consumido y por qué", "Decisión según la política (congelar despliegues o no)", "README con diagrama, capturas de SLO y enlaces a postmortems"]
+    acceptance: ["README completo según convenciones"]

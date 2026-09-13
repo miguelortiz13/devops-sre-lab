@@ -1,0 +1,64 @@
+id: P7
+title: "dr-finops — recuperación ante desastres y costos"
+repo: dr-finops
+milestone: "Fase 3 — Confiabilidad y seguridad"
+labels: ["area:sre", "area:cloud"]
+objective: |
+  Demostrar que la plataforma se puede recuperar tras perder el cluster,
+  midiendo RTO y RPO reales, y que escala y cuesta lo que debe.
+done_when:
+  - "Informe de simulacro con RTO/RPO medidos"
+  - "Costo mensual estimado y optimizaciones aplicadas"
+learn: ["RTO y RPO", "Backups de Kubernetes", "Autoscaling (HPA, KEDA, cluster autoscaler)", "FinOps"]
+tasks:
+  - key: P7-01
+    title: "Velero con backups a Blob Storage"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:sre"]
+    why: "GitOps reconstruye lo declarado, pero no los datos ni lo creado fuera de Git."
+    learn: ["Qué respalda Velero (recursos y volúmenes)", "Snapshots de discos", "Workload Identity para Velero"]
+    steps:
+      - "Storage Account y identidad para Velero en P1"
+      - "Instala Velero con el plugin de Azure vía GitOps"
+      - "Schedule diario con retención de 7 días"
+      - "Restaura un namespace borrado a mano"
+    acceptance: ["Restore exitoso de un namespace"]
+  - key: P7-02
+    title: "Simulacro de DR completo"
+    who: "Tú"
+    estimate: "4 h"
+    labels: ["area:sre"]
+    why: "Un backup que nunca se restauró no es un backup."
+    steps:
+      - "Escribe el plan de DR antes de empezar (pasos y responsables)"
+      - "Genera datos (carritos en Redis) y anota la hora del último backup"
+      - "`terraform destroy` del cluster (no del storage de backups)"
+      - "Recrea: P1 apply → P3 bootstrap → Velero restore; cronometra cada fase"
+      - "Calcula RTO (tiempo total) y RPO (datos perdidos)"
+      - "Informe con mejoras para reducir el RTO"
+    acceptance: ["`docs/simulacro-dr.md` con tiempos por fase"]
+  - key: P7-03
+    title: "Autoscaling con HPA, KEDA y cluster autoscaler"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:kubernetes"]
+    why: "Pagar por capacidad ociosa o caerse en un pico son las dos caras del mismo problema."
+    steps:
+      - "HPA por CPU en frontend y prueba con k6 (P5-04)"
+      - "KEDA escalando por una métrica de Prometheus (peticiones por segundo)"
+      - "Cluster autoscaler en el node pool (min 1, max 3) y observa nodos nuevos"
+      - "Node pool spot para cargas tolerantes y entiende las evictions"
+    acceptance: ["Gráficas de réplicas y nodos durante la prueba de carga"]
+  - key: P7-04
+    title: "Costos con OpenCost y README"
+    who: "Tú"
+    estimate: "2–3 h"
+    labels: ["area:cloud", "area:docs"]
+    why: "Saber cuánto cuesta cada equipo o app es la base para optimizar."
+    steps:
+      - "Instala OpenCost con precios de Azure"
+      - "Costo por namespace y recomendaciones de rightsizing de requests"
+      - "Aplica 2 optimizaciones y mide el ahorro"
+      - "README con informe de DR, autoscaling y costos"
+    acceptance: ["README completo según convenciones"]

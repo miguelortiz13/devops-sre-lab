@@ -1,0 +1,59 @@
+id: P8
+title: "infra-aws-terraform — portabilidad a AWS"
+repo: infra-aws-terraform
+milestone: "Fase 4 — Portabilidad"
+labels: ["area:iac", "area:cloud"]
+objective: |
+  Reproducir la plataforma en AWS EKS con Terraform y el mismo repositorio
+  GitOps, y documentar las diferencias reales entre ambas nubes.
+done_when:
+  - "Online Boutique corre en EKS desplegada por `platform-gitops`"
+  - "Comparativa Azure vs AWS publicada"
+learn: ["IAM de AWS", "VPC y EKS", "IRSA / EKS Pod Identity", "Módulos de la comunidad vs propios"]
+tasks:
+  - key: P8-01
+    title: "Cuenta AWS segura y control de costos"
+    who: "Tú"
+    estimate: "1–2 h"
+    labels: ["area:cloud"]
+    why: "La cuenta root de AWS no debe usarse nunca para trabajar."
+    steps:
+      - "MFA en root, IAM Identity Center con un usuario administrador"
+      - "AWS Budgets con alertas y `aws configure sso`"
+      - "Recuerda que el control-plane de EKS se cobra por hora: planifica sesiones cortas"
+    acceptance: ["Acceso por SSO funcionando", "Budget activo"]
+  - key: P8-02
+    title: "Estado remoto, VPC y EKS con Terraform"
+    who: "Tú"
+    estimate: "4–5 h"
+    labels: ["area:iac"]
+    why: "Aplicar los patrones de P1 en otra nube demuestra que entiendes el concepto y no solo un proveedor."
+    steps:
+      - "Backend S3 con bloqueo nativo (`use_lockfile`)"
+      - "VPC con subnets públicas y privadas (módulo `terraform-aws-modules/vpc`)"
+      - "EKS con managed node group y ECR"
+      - "EKS Pod Identity para los controladores que lo necesiten"
+      - "Apply, conectar, destroy y anotar tiempos y costo"
+    acceptance: ["`kubectl get nodes` en EKS", "Destroy sin residuos"]
+  - key: P8-03
+    title: "OIDC GitHub → AWS y pipeline"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:ci-cd", "area:seguridad"]
+    steps:
+      - "OIDC provider y rol IAM con condición por repo y environment"
+      - "Reutiliza la estructura de pipeline de P1-09"
+    why: "Mismo principio que en Azure: nada de access keys de larga vida."
+    acceptance: ["Plan en PR autenticado por OIDC"]
+  - key: P8-04
+    title: "Overlay AWS en platform-gitops y comparativa"
+    who: "Tú"
+    estimate: "3–4 h"
+    labels: ["area:gitops", "area:docs"]
+    why: "La prueba de portabilidad es cuánto cambia en los manifiestos."
+    steps:
+      - "`clusters/aws-dev` con overlays solo donde difiere (storage class, identidad, load balancer)"
+      - "Bootstrap de Argo CD en EKS y sync"
+      - "Tabla comparativa: servicios equivalentes, costo por hora, tiempo de apply, fricciones"
+      - "README y actualización final del hub"
+    acceptance: ["App funcionando en EKS", "Comparativa publicada"]

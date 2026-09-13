@@ -1,0 +1,82 @@
+id: P6
+title: "k8s-security-policies — seguridad de la plataforma"
+repo: k8s-security-policies
+milestone: "Fase 3 — Confiabilidad y seguridad"
+labels: ["area:seguridad"]
+objective: |
+  Endurecer el cluster: solo imágenes firmadas, pods sin privilegios, tráfico
+  de red mínimo, detección en tiempo de ejecución y evidencia CIS.
+done_when:
+  - "Una imagen sin firmar es rechazada por el cluster"
+  - "Reporte CIS antes/después"
+learn: ["Admission control", "Policy as code", "Pod Security Standards", "NetworkPolicies", "Runtime security"]
+tasks:
+  - key: P6-01
+    title: "Kyverno con políticas base en modo audit"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:seguridad", "area:kubernetes"]
+    why: "Empezar en audit permite ver qué se rompería antes de bloquear."
+    learn: ["Admission webhooks", "validate, mutate, generate", "PolicyReports"]
+    steps:
+      - "Instala Kyverno vía GitOps"
+      - "Políticas: no root, requests/limits obligatorios, etiquetas obligatorias, sin `latest`"
+      - "Revisa PolicyReports y corrige los manifiestos de la app"
+      - "Pasa a `Enforce` cuando el reporte esté limpio"
+      - "Tests de políticas con `kyverno test` en CI"
+    acceptance: ["Políticas en Enforce sin romper la app", "Tests en CI"]
+  - key: P6-02
+    title: "Verificación de firmas de imagen"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:seguridad"]
+    why: "Cierra la cadena de P2: solo corre lo que tu pipeline firmó."
+    steps:
+      - "ClusterPolicy `verifyImages` con la identidad keyless de tu workflow de P2"
+      - "Intenta desplegar una imagen sin firmar y guarda el mensaje de rechazo"
+    acceptance: ["Rechazo documentado con captura"]
+  - key: P6-03
+    title: "NetworkPolicies default-deny"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:seguridad", "area:kubernetes"]
+    why: "Por defecto todo pod habla con todo pod; un compromiso se propaga."
+    learn: ["Ingress/egress policies", "Selectores", "Cilium y observación de flujos"]
+    steps:
+      - "Dibuja el grafo de llamadas entre servicios (usa las trazas de P4)"
+      - "Default-deny por namespace y políticas allow según el grafo; no olvides DNS"
+      - "Verifica con pruebas de conexión que lo no permitido falla"
+    acceptance: ["App funcional con default-deny", "Diagrama del grafo permitido"]
+  - key: P6-04
+    title: "Pod Security Standards y RBAC mínimo"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:seguridad"]
+    steps:
+      - "Etiqueta namespaces con `pod-security.kubernetes.io/enforce: restricted` donde aplique"
+      - "Revisa ServiceAccounts: `automountServiceAccountToken: false` si no se usan"
+      - "Roles de solo lectura para un usuario de prueba y verifica con `kubectl auth can-i`"
+    why: "Defensa en profundidad: aunque falle una política, otra capa detiene el abuso."
+    acceptance: ["Matriz de permisos documentada"]
+  - key: P6-05
+    title: "Detección en tiempo de ejecución con Falco"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:seguridad"]
+    why: "Las políticas previenen; Falco detecta lo que ocurre dentro de contenedores ya en ejecución."
+    steps:
+      - "Instala Falco con driver eBPF moderno"
+      - "Provoca eventos: shell en un contenedor, lectura de /etc/shadow"
+      - "Envía alertas a Loki o Discord y crea una regla propia"
+    acceptance: ["Evento detectado y visible en Grafana/Discord"]
+  - key: P6-06
+    title: "Benchmark CIS con kube-bench y README"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:seguridad", "area:docs"]
+    why: "Una métrica objetiva de mejora es evidencia fuerte."
+    steps:
+      - "kube-bench antes de las políticas (usa un cluster recién creado) y después"
+      - "Tabla antes/después con hallazgos corregidos y aceptados (AKS gestiona el control-plane)"
+      - "README con diagrama de capas de seguridad y capturas"
+    acceptance: ["README completo según convenciones"]

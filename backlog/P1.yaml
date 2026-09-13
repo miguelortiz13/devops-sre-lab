@@ -1,0 +1,188 @@
+id: P1
+title: "infra-azure-terraform — infraestructura como código"
+repo: infra-azure-terraform
+milestone: "Fase 1 — Fundamentos"
+labels: ["area:iac"]
+objective: |
+  Aprovisionar en Azure la red, el cluster AKS, el registro de imágenes y el
+  Key Vault usando módulos Terraform propios, con un pipeline que muestre el
+  plan y el costo en cada PR y que se autentique sin secretos (OIDC).
+done_when:
+  - "Un PR muestra `terraform plan` y el costo estimado como comentario"
+  - "Al aprobar el environment se crea el AKS y `kubectl` conecta"
+  - "`terraform destroy` elimina todo sin residuos"
+learn: ["Terraform (providers, state, módulos)", "Azure (VNet, AKS, ACR, Key Vault, Entra ID)", "OIDC", "Seguridad en IaC", "Costos"]
+tasks:
+  - key: P1-01
+    title: "Preparar la suscripción personal de Azure y controlar costos"
+    who: "Tú"
+    estimate: "1 h"
+    labels: ["area:cloud"]
+    why: "Todo lo demás depende de tener una suscripción aislada y una alarma que te avise antes de gastar de más."
+    learn: ["Tenant vs suscripción vs resource group", "Azure Budgets", "Contextos de az CLI"]
+    steps:
+      - "Crea una cuenta Azure personal (Free o Azure for Students) con un correo personal"
+      - "`az login` y luego `az account list -o table`: identifica la suscripción personal"
+      - "`az account set --subscription <id-personal>` y confirma con `az account show`"
+      - "Nunca uses la suscripción de trabajo para el laboratorio"
+      - "En el portal: Cost Management → Budgets → crea un budget mensual (ej. 20 USD) con alertas al 50%, 80% y 100% a tu correo"
+      - "Registra los proveedores que usarás: `az provider register -n Microsoft.ContainerService` (y Microsoft.KeyVault, Microsoft.ContainerRegistry, Microsoft.OperationalInsights)"
+    acceptance:
+      - "`az account show` muestra la suscripción personal"
+      - "Budget con 3 alertas configurado"
+    resources: ["https://learn.microsoft.com/azure/cost-management-billing/costs/tutorial-acm-create-budgets"]
+  - key: P1-02
+    title: "Crear el repo y la estructura base"
+    who: "Tú"
+    estimate: "1–2 h"
+    labels: ["area:iac"]
+    why: "Una estructura clara (módulos reutilizables + entornos que los componen) es lo que diferencia IaC profesional de un main.tf gigante."
+    learn: ["Módulos vs root modules", "Fijar versiones de providers", "pre-commit"]
+    steps:
+      - "Crea la carpeta `infra-azure-terraform` en el hub y `gh repo create infra-azure-terraform --public --source . --push`"
+      - "Estructura: `bootstrap/`, `modules/{network,aks,acr,keyvault,monitoring}/`, `envs/dev/`, `envs/prod/`, `docs/`"
+      - "En cada módulo: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`"
+      - "En `versions.tf` fija `required_version` de Terraform y `azurerm` con `~>`"
+      - "Agrega `.gitignore` para `.terraform/`, `*.tfstate*`, `*.tfvars` (excepto `*.tfvars.example`)"
+      - "Instala pre-commit con hooks `terraform_fmt`, `terraform_validate`, `terraform_tflint` y `gitleaks`"
+      - "Copia el Makefile pattern de P0: `make fmt`, `make validate`, `make plan ENV=dev`"
+    acceptance:
+      - "`pre-commit run --all-files` pasa"
+      - "Estructura de carpetas documentada en el README"
+    resources: ["https://developer.hashicorp.com/terraform/language/modules/develop/structure", "https://github.com/antonbabenko/pre-commit-terraform"]
+  - key: P1-03
+    title: "Bootstrap del estado remoto en Azure Storage"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:iac"]
+    why: "El state local se pierde o se corrompe cuando trabajan dos personas o un pipeline. El estado remoto con bloqueo lo evita."
+    learn: ["Qué es el tfstate y por qué contiene secretos", "Backend azurerm y bloqueo por lease de blob", "Problema del huevo y la gallina"]
+    steps:
+      - "En `bootstrap/`: resource group `rg-tfstate`, Storage Account (nombre único), container `tfstate`"
+      - "Activa versionado de blobs y soft delete (recuperar un state borrado)"
+      - "Desactiva acceso público y exige TLS 1.2"
+      - "Aplica bootstrap con state local (es la única excepción) y documenta por qué"
+      - "En `envs/dev/backend.tf` configura `backend \"azurerm\"` con `use_azuread_auth = true`"
+      - "`terraform init` en dev y verifica que aparece el blob `dev.tfstate`"
+      - "Prueba el bloqueo: dos `terraform plan` en paralelo, el segundo debe esperar/fallar por lock"
+    acceptance:
+      - "State de dev guardado en el Storage Account"
+      - "Bloqueo verificado y descrito en `docs/`"
+    resources: ["https://developer.hashicorp.com/terraform/language/backend/azurerm"]
+  - key: P1-04
+    title: "Módulo network: VNet, subnets y NSG"
+    who: "Tú"
+    estimate: "2–3 h"
+    labels: ["area:iac"]
+    why: "La red es la base de seguridad: define qué puede hablar con qué."
+    learn: ["CIDR y planificación de direcciones", "Subnets para nodos AKS", "Network Security Groups"]
+    steps:
+      - "Planifica CIDRs en `docs/network.md` (ej. VNet 10.10.0.0/16, subnet aks 10.10.0.0/22)"
+      - "Variables: nombre, location, address_space, subnets como `map(object)`"
+      - "Crea `azurerm_virtual_network`, `azurerm_subnet` con `for_each` y un NSG asociado"
+      - "Outputs: `vnet_id`, `subnet_ids`"
+      - "Agrega `validation` a las variables (CIDR válido)"
+      - "Ejecuta `terraform plan` desde `envs/dev` y lee cada recurso del plan"
+    acceptance: ["`plan` limpio sin warnings", "`tflint` y `checkov` sin hallazgos críticos"]
+  - key: P1-05
+    title: "Módulos acr y keyvault con RBAC"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:iac", "area:seguridad"]
+    why: "Las imágenes (P2) y los secretos (P3) necesitan dónde vivir, con permisos por identidad y no por contraseñas."
+    learn: ["Azure RBAC vs access policies", "Admin user deshabilitado en ACR", "Nombres globalmente únicos"]
+    steps:
+      - "ACR SKU Basic, `admin_enabled = false`"
+      - "Key Vault con `enable_rbac_authorization = true`, soft delete y purge protection (entiende qué implica para destroy)"
+      - "Asigna a tu usuario el rol `Key Vault Secrets Officer` para pruebas"
+      - "Outputs: `acr_id`, `acr_login_server`, `key_vault_id`, `key_vault_uri`"
+    acceptance: ["`az acr login` funciona con tu identidad sin usuario admin", "Puedes crear y leer un secreto de prueba"]
+  - key: P1-06
+    title: "Módulo aks"
+    who: "Tú"
+    estimate: "3–4 h"
+    labels: ["area:iac", "area:kubernetes"]
+    why: "Es el corazón de la plataforma. Varias opciones de hoy (OIDC, network policy) son obligatorias para proyectos posteriores."
+    learn: ["Tier Free vs Standard", "Node pools y tamaños", "Managed identity", "OIDC issuer y Workload Identity", "Azure CNI y network policy"]
+    steps:
+      - "`azurerm_kubernetes_cluster` con `sku_tier = \"Free\"` y un node pool de 1–2 nodos pequeños"
+      - "`identity { type = \"SystemAssigned\" }`"
+      - "Activa `oidc_issuer_enabled` y `workload_identity_enabled` (necesario en P3, P6, P7)"
+      - "Red: Azure CNI Overlay con network policy (Cilium) — necesario para NetworkPolicies en P6"
+      - "Integra con la subnet del módulo network"
+      - "`azurerm_role_assignment` AcrPull de la kubelet identity sobre el ACR"
+      - "Output `kube_config` marcado `sensitive = true` y entiende por qué"
+    acceptance: ["`checkov` sin hallazgos críticos o justificados con skip comentado", "Variables documentadas"]
+    resources: ["https://learn.microsoft.com/azure/aks/workload-identity-overview"]
+  - key: P1-07
+    title: "Módulo monitoring y entorno dev completo"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:iac"]
+    why: "Componer los módulos en un entorno real y ver el ciclo completo apply → usar → destroy."
+    learn: ["Composición de módulos", "Dependencias implícitas", "Ciclo de vida y drift"]
+    steps:
+      - "Módulo monitoring: Log Analytics workspace con retención mínima (30 días)"
+      - "`envs/dev/main.tf` llama a todos los módulos pasando outputs entre ellos"
+      - "`terraform.tfvars.example` con valores de ejemplo (sin secretos)"
+      - "`terraform apply` y anota cuánto tardó"
+      - "`az aks get-credentials` y `kubectl get nodes`"
+      - "Despliega Online Boutique con el Makefile de P0 apuntando a este contexto (prueba de humo en nube)"
+      - "Cambia algo a mano en el portal y ejecuta `plan`: observa el drift"
+      - "`terraform destroy` y confirma en el portal que no quedó nada (incluye el resource group MC_ de nodos)"
+    acceptance: ["Tienda funcionando en AKS", "Destroy sin residuos", "Tiempos y costo real de la sesión anotados"]
+  - key: P1-08
+    title: "Autenticación GitHub Actions → Azure con OIDC"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:ci-cd", "area:seguridad"]
+    why: "Guardar un client secret en GitHub es una credencial de larga vida que se puede filtrar. OIDC emite tokens de minutos."
+    learn: ["App registration y service principal", "Federated identity credentials", "Claims de subject (repo, branch, environment)", "Mínimo privilegio"]
+    steps:
+      - "Crea una app registration `gh-infra-azure-terraform` (puede ser con Terraform en bootstrap)"
+      - "Agrega federated credentials para `repo:miguelortiz13/infra-azure-terraform:pull_request` y `...:environment:dev`"
+      - "Roles: `Contributor` en la suscripción (o RG) + `Storage Blob Data Contributor` en el state + `User Access Administrator` restringido si asignas roles"
+      - "Guarda en GitHub (Variables, no Secrets) `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`"
+      - "Workflow mínimo con `permissions: id-token: write` y `azure/login` que ejecute `az account show`"
+    acceptance: ["El workflow se autentica sin ningún secreto guardado", "Documento en `docs/oidc.md` explicando el flujo"]
+    resources: ["https://learn.microsoft.com/azure/developer/github/connect-from-azure-openid-connect"]
+  - key: P1-09
+    title: "Pipeline de PR: validación, seguridad y plan"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:ci-cd", "area:iac"]
+    why: "Nadie debe aplicar infraestructura sin que el cambio haya sido revisado con su plan visible."
+    learn: ["Pipeline por etapas", "Escaneo de IaC (checkov/tflint)", "Environments con aprobación manual"]
+    steps:
+      - "Workflow `pr.yaml`: fmt -check → init → validate → tflint → checkov → plan"
+      - "Publica el plan como comentario del PR (actualiza el mismo comentario en cada push)"
+      - "Workflow `apply.yaml` en push a main con `environment: dev` que requiere tu aprobación"
+      - "Guarda el plan como artefacto y aplica exactamente ese plan"
+      - "Protege `main`: PR obligatorio y checks requeridos"
+    acceptance: ["PR de prueba con comentario de plan", "Apply bloqueado hasta aprobar"]
+  - key: P1-10
+    title: "Costo estimado en cada PR con Infracost"
+    who: "Tú"
+    estimate: "1 h"
+    labels: ["area:ci-cd", "area:cloud"]
+    why: "Un ingeniero de plataforma debe saber cuánto cuesta un cambio antes de mergearlo."
+    learn: ["FinOps shift-left", "Costo de AKS por nodo, ACR, Log Analytics"]
+    steps:
+      - "Crea cuenta gratuita de Infracost y guarda la API key como Secret"
+      - "Agrega el job de Infracost al pipeline de PR con comentario de diff de costo"
+      - "Haz un PR que cambie el tamaño del nodo y observa el diff"
+    acceptance: ["Comentario de costo visible en un PR"]
+  - key: P1-11
+    title: "README, diagrama, ADRs y evidencia"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:docs"]
+    why: "Sin evidencia visible, el trabajo no existe para quien revisa tu portafolio."
+    learn: ["Comunicar arquitectura", "ADRs"]
+    steps:
+      - "README con diagrama Mermaid de recursos y de flujo del pipeline"
+      - "Capturas: comentario de plan, comentario de costo, aprobación del environment, `kubectl get nodes`"
+      - "ADRs: Azure CNI Overlay + Cilium, OIDC vs secret, estructura de módulos"
+      - "Sección de lecciones aprendidas y costo real gastado"
+      - "Actualiza el estado de P1 en el README del hub"
+    acceptance: ["README con las 6 secciones de `docs/convenciones.md` del hub"]

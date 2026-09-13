@@ -1,0 +1,94 @@
+id: P0
+title: "local-k8s-lab — entorno local reproducible"
+repo: local-k8s-lab
+milestone: "Fase 1 — Fundamentos"
+labels: ["area:kubernetes"]
+objective: |
+  Que cualquiera clone el repo y con un comando tenga Online Boutique corriendo
+  en un cluster Kubernetes local, igual en tu PC y en CI.
+done_when:
+  - "`make up && make deploy` funciona desde un clon limpio (probado en CI)"
+  - "Leíste `docs/GUIA.md` y reprodujiste el laboratorio tú mismo (P0-07)"
+learn: ["Kubernetes básico", "kind", "Helm", "Makefile", "bash estricto", "GitHub Actions"]
+tasks:
+  - key: P0-01
+    title: "Instalar herramientas con versiones fijadas"
+    who: "Hecho (guiado)"
+    state: closed
+    labels: ["area:kubernetes"]
+    why: "Todos deben usar las mismas versiones; si no, el entorno cambia sin que nadie lo decida."
+    learn: ["Versionado de herramientas", "Verificación SHA-256", "Idempotencia en scripts"]
+    done:
+      - "`scripts/install-tools.sh`: instala kubectl, kind, helm y k9s en `~/.local/bin` verificando checksum"
+      - "`scripts/doctor.sh`: valida herramientas, Docker y memoria antes de empezar"
+    acceptance: ["`make tools` dos veces seguidas no descarga nada la segunda vez"]
+  - key: P0-02
+    title: "Definir el cluster kind de 3 nodos"
+    who: "Hecho (guiado)"
+    state: closed
+    labels: ["area:kubernetes"]
+    why: "Declarar el cluster en YAML hace que siempre sea igual y documenta su forma."
+    learn: ["Control-plane vs workers", "Kubernetes en Docker", "Declarativo vs imperativo"]
+    done: ["`kind/cluster.yaml`: 1 control-plane + 2 workers con etiqueta `lab.role`"]
+    acceptance: ["`kubectl get nodes` muestra 3 nodos Ready"]
+  - key: P0-03
+    title: "Desplegar Online Boutique con Helm"
+    who: "Hecho (guiado)"
+    state: closed
+    labels: ["area:kubernetes"]
+    why: "Usar el chart oficial y versionar solo los overrides evita mantener cientos de líneas copiadas."
+    learn: ["Charts y values de Helm", "Registros OCI", "Deployments, Pods y Services"]
+    done:
+      - "`values/onlineboutique.yaml`: corrige el repositorio de imágenes, desactiva el LoadBalancer y activa el generador de carga"
+      - "Incidente `ImagePullBackOff` diagnosticado y documentado en `docs/GUIA.md`"
+    acceptance: ["12 pods Running en el namespace `boutique`"]
+  - key: P0-04
+    title: "Makefile como punto de entrada único"
+    who: "Hecho (guiado)"
+    state: closed
+    labels: ["area:kubernetes"]
+    why: "Un solo lugar con los comandos del proyecto; nadie tiene que recordar flags de kubectl o helm."
+    learn: ["make, .PHONY, variables con ?=", "Modo estricto de bash (-euo pipefail)"]
+    done:
+      - "`Makefile`: help, tools, doctor, up, deploy, status, open, smoke, undeploy, down, lint"
+      - "`scripts/smoke-test.sh`: prueba HTTP 200 del frontend con reintentos"
+      - "Puerto 8090 y `--address 127.0.0.1` tras el conflicto con otro servicio en 8080"
+    acceptance: ["`make help` lista todos los objetivos", "`make smoke` devuelve OK"]
+  - key: P0-05
+    title: "CI con lint y prueba e2e en kind"
+    who: "Hecho (guiado)"
+    state: closed
+    labels: ["area:ci-cd"]
+    why: "Probar en una máquina limpia en cada cambio es la única prueba real de reproducibilidad."
+    learn: ["Workflows, jobs y steps", "needs, if: failure(), concurrency", "Permisos mínimos del GITHUB_TOKEN"]
+    done: ["`.github/workflows/ci.yaml`: job lint (shellcheck + helm template) y job e2e (doctor, up, deploy, smoke, down)"]
+    acceptance: ["El badge de CI del README está en verde"]
+  - key: P0-06
+    title: "README y guía de estudio"
+    who: "Hecho (guiado)"
+    state: closed
+    labels: ["area:docs"]
+    why: "En un portafolio el README es lo que se evalúa; la guía es tu material de estudio."
+    learn: ["Diagramas Mermaid", "Documentar decisiones y lecciones"]
+    done: ["`README.md` con arquitectura, uso, decisiones y lecciones", "`docs/GUIA.md` explicando cada archivo y los incidentes"]
+    acceptance: ["Un tercero entiende el proyecto sin preguntar"]
+  - key: P0-07
+    title: "Reproducir P0 tú mismo desde cero"
+    who: "Tú"
+    estimate: "2–3 h"
+    labels: ["area:kubernetes"]
+    why: "Leer no es lo mismo que hacer. Romper y reparar el entorno es como se aprende a operarlo."
+    learn: ["Ciclo de vida del cluster", "Diagnóstico con kubectl describe/events/logs", "k9s"]
+    steps:
+      - "Instala make: `sudo apt install -y make`"
+      - "Lee `docs/GUIA.md` completa con cada archivo abierto al lado"
+      - "`make down` para borrar el cluster actual"
+      - "Clona el repo en otra carpeta y ejecuta `make doctor up deploy smoke open`"
+      - "Explora con `k9s`: navega pods, logs y describe"
+      - "Rompe algo a propósito: `kubectl -n boutique scale deploy/cartservice --replicas=0` y observa qué pasa en la tienda"
+      - "Rompe otra cosa: cambia `images.repository` en los values a un valor inválido, `make deploy` y diagnostica con `kubectl get events`"
+      - "Repara ambos y anota en un comentario de esta issue qué viste y cómo lo diagnosticaste"
+      - "Haz el ejercicio de la guía: agrega `make logs` al Makefile en una rama `feat/make-logs` y abre un PR"
+    acceptance:
+      - "PR `feat/make-logs` mergeado con CI en verde"
+      - "Comentario en esta issue con tus observaciones de los dos fallos provocados"

@@ -1,0 +1,106 @@
+id: P4
+title: "observability-stack — observabilidad"
+repo: observability-stack
+milestone: "Fase 2 — Plataforma"
+labels: ["area:observabilidad"]
+objective: |
+  Métricas, logs y trazas de Online Boutique correlacionados en Grafana,
+  con dashboards y alertas como código.
+done_when:
+  - "Desde una alerta se llega al dashboard, a la traza lenta y a sus logs"
+learn: ["Tres pilares de observabilidad", "PromQL y LogQL", "OpenTelemetry", "Métodos RED y USE", "Alertmanager"]
+tasks:
+  - key: P4-01
+    title: "kube-prometheus-stack vía Argo CD"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:observabilidad", "area:gitops"]
+    why: "Prometheus es el estándar de métricas en Kubernetes."
+    learn: ["Prometheus Operator", "ServiceMonitor/PodMonitor", "PromQL básico"]
+    steps:
+      - "Application de Argo CD con el chart y values versionados"
+      - "Retención y recursos acordes a un cluster pequeño"
+      - "Grafana con admin desde External Secrets (P3-05)"
+      - "Practica 10 consultas PromQL y guárdalas en `docs/promql.md`"
+    acceptance: ["Grafana accesible y targets de Prometheus en UP"]
+  - key: P4-02
+    title: "Logs con Loki y Grafana Alloy"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:observabilidad"]
+    why: "Los logs centralizados sobreviven a los pods que mueren."
+    learn: ["Loki y etiquetas", "LogQL", "Agentes de recolección"]
+    steps:
+      - "Loki en modo monolítico/single-binary con storage en Blob (o filesystem en dev)"
+      - "Grafana Alloy como DaemonSet recolectando logs de pods"
+      - "Consultas LogQL de errores por servicio"
+    acceptance: ["Logs de todos los servicios consultables en Grafana"]
+  - key: P4-03
+    title: "Trazas con OpenTelemetry Collector y Tempo"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:observabilidad"]
+    why: "En microservicios, la traza distribuida es la única forma de saber dónde se va el tiempo de una petición."
+    learn: ["Spans y contexto de propagación", "OTLP", "Pipelines del Collector (receivers, processors, exporters)"]
+    steps:
+      - "Tempo vía Argo CD"
+      - "OpenTelemetry Collector con receiver OTLP y exporters a Tempo y Prometheus"
+      - "Activa la instrumentación de Online Boutique (`opentelemetryCollector` y variables de los servicios) apuntando a tu Collector"
+      - "Busca una traza de checkout y analiza sus spans"
+    acceptance: ["Trazas de checkout visibles en Grafana Tempo"]
+  - key: P4-04
+    title: "Dashboards como código: RED por servicio y USE por nodo"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:observabilidad"]
+    why: "Dashboards creados a mano se pierden y no se revisan."
+    learn: ["Rate/Errors/Duration", "Utilization/Saturation/Errors", "Provisioning de Grafana con ConfigMaps"]
+    steps:
+      - "Dashboard RED con variable de servicio"
+      - "Dashboard USE de nodos"
+      - "Expórtalos a JSON y cárgalos con el sidecar de dashboards"
+    acceptance: ["Dashboards recreados automáticamente tras borrar Grafana"]
+  - key: P4-05
+    title: "Alertas con Alertmanager a Discord"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:observabilidad", "area:sre"]
+    why: "Una alerta debe ser accionable y llegar a quien puede actuar."
+    learn: ["PrometheusRule", "Routing, agrupación y silencios", "Alertas por síntoma vs por causa"]
+    steps:
+      - "Webhook de Discord guardado en Key Vault → External Secrets"
+      - "Reglas: tasa de errores del frontend, pods en CrashLoop, nodo con presión de memoria"
+      - "Cada alerta con anotación `runbook_url`"
+      - "Provoca una alerta escalando cartservice a 0"
+    acceptance: ["Alerta recibida en Discord y resuelta"]
+  - key: P4-06
+    title: "Correlación métricas → trazas → logs"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:observabilidad"]
+    why: "Es lo que reduce el tiempo de diagnóstico en un incidente real."
+    learn: ["Exemplars", "Derived fields por trace_id", "Data links"]
+    steps:
+      - "Exemplars en Prometheus enlazados a Tempo"
+      - "Derived field en Loki que abre la traza por `trace_id`"
+      - "Graba un GIF recorriendo alerta → dashboard → traza → logs"
+    acceptance: ["GIF del recorrido completo en el README"]
+  - key: P4-07
+    title: "Análisis automático del canary con Prometheus"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:observabilidad", "area:gitops"]
+    why: "Cierra P3-06: el rollback lo decide la métrica, no una persona."
+    steps:
+      - "AnalysisTemplate con tasa de éxito del frontend ≥ 99%"
+      - "Despliega una versión que devuelve errores (variable de entorno o imagen defectuosa)"
+      - "Observa el abort y rollback automático"
+    acceptance: ["Rollback automático demostrado"]
+  - key: P4-08
+    title: "README con evidencia"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:docs"]
+    why: "La observabilidad se demuestra con imágenes."
+    steps: ["Diagrama de flujo de telemetría", "Capturas de dashboards y alerta en Discord", "GIF de correlación", "Consumo de recursos del stack"]
+    acceptance: ["README completo según convenciones"]

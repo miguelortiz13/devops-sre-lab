@@ -1,0 +1,29 @@
+# Etiquetas y milestones compartidos por todo el backlog.
+labels:
+  - {name: "tipo:épica", color: "5319e7", description: "Agrupa las tareas de un proyecto"}
+  - {name: "tipo:tarea", color: "0e8a16", description: "Unidad de trabajo con paso a paso"}
+  - {name: "hazlo-tú", color: "fbca04", description: "Tarea para que la ejecutes tú (con guía)"}
+  - {name: "P0", color: "c5def5", description: "local-k8s-lab"}
+  - {name: "P1", color: "c5def5", description: "infra-azure-terraform"}
+  - {name: "P2", color: "c5def5", description: "online-boutique-ci"}
+  - {name: "P3", color: "c5def5", description: "platform-gitops"}
+  - {name: "P4", color: "c5def5", description: "observability-stack"}
+  - {name: "P5", color: "c5def5", description: "sre-reliability-lab"}
+  - {name: "P6", color: "c5def5", description: "k8s-security-policies"}
+  - {name: "P7", color: "c5def5", description: "dr-finops"}
+  - {name: "P8", color: "c5def5", description: "infra-aws-terraform"}
+  - {name: "area:kubernetes", color: "1d76db", description: ""}
+  - {name: "area:iac", color: "1d76db", description: "Terraform / infraestructura"}
+  - {name: "area:ci-cd", color: "1d76db", description: "Pipelines"}
+  - {name: "area:gitops", color: "1d76db", description: "Argo CD / Kustomize"}
+  - {name: "area:observabilidad", color: "1d76db", description: "Métricas, logs, trazas"}
+  - {name: "area:sre", color: "1d76db", description: "SLOs, caos, incidentes"}
+  - {name: "area:seguridad", color: "1d76db", description: ""}
+  - {name: "area:cloud", color: "1d76db", description: "Cuentas, costos, identidad"}
+  - {name: "area:docs", color: "1d76db", description: "README, ADRs, evidencia"}
+
+milestones:
+  - {title: "Fase 1 — Fundamentos", description: "P0, P1, P2 · semanas 1–5"}
+  - {title: "Fase 2 — Plataforma", description: "P3, P4 · semanas 6–10"}
+  - {title: "Fase 3 — Confiabilidad y seguridad", description: "P5, P6, P7 · semanas 11–16"}
+  - {title: "Fase 4 — Portabilidad", description: "P8 · semanas 17–19"}

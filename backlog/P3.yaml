@@ -1,0 +1,102 @@
+id: P3
+title: "platform-gitops — GitOps y entrega progresiva"
+repo: platform-gitops
+milestone: "Fase 2 — Plataforma"
+labels: ["area:gitops"]
+objective: |
+  Todo lo que corre en el cluster declarado en Git y reconciliado por Argo CD:
+  la aplicación, la entrada de tráfico con TLS, los secretos desde Key Vault
+  y despliegues canary con rollback automático.
+done_when:
+  - "Borrar el namespace de la app y Argo CD lo reconstruye solo"
+  - "Un canary con errores se revierte automáticamente"
+learn: ["GitOps (pull vs push)", "Argo CD app-of-apps", "Kustomize", "Gateway API", "cert-manager", "External Secrets", "Argo Rollouts"]
+tasks:
+  - key: P3-01
+    title: "Estructura del repo GitOps con Kustomize"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:gitops"]
+    why: "Una estructura bases/overlays evita duplicar YAML entre entornos."
+    learn: ["Kustomize bases, overlays y patches", "Separar plataforma de aplicaciones"]
+    steps:
+      - "Estructura: `bootstrap/`, `platform/<componente>/`, `apps/online-boutique/{base,overlays/dev,overlays/prod}`, `clusters/dev/`"
+      - "Base con los manifiestos (render del chart con `helm template` o Helm vía Argo, decide y documenta en un ADR)"
+      - "Overlay dev con réplicas y recursos reducidos"
+      - "`kustomize build apps/online-boutique/overlays/dev` sin errores"
+      - "CI: `kustomize build` + `kubeconform` en cada PR"
+    acceptance: ["CI valida todos los overlays"]
+  - key: P3-02
+    title: "Instalar Argo CD y patrón app-of-apps"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:gitops"]
+    why: "Argo CD compara continuamente Git con el cluster y corrige las diferencias."
+    learn: ["Application y AppProject", "Sync policies (prune, selfHeal)", "Sync waves"]
+    steps:
+      - "Prueba primero en kind (P0) para no gastar nube"
+      - "Instala Argo CD con su chart desde `bootstrap/` (único paso manual)"
+      - "Application raíz `clusters/dev` que apunta al resto de Applications"
+      - "`syncPolicy.automated` con `prune` y `selfHeal`"
+      - "Argo CD se gestiona a sí mismo desde Git"
+    acceptance: ["La UI de Argo CD muestra todas las apps Synced/Healthy"]
+  - key: P3-03
+    title: "Online Boutique gestionada por Argo CD"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:gitops"]
+    why: "Validar el ciclo completo: commit → sync → pods."
+    steps:
+      - "Application de online-boutique apuntando al overlay dev"
+      - "Cambia réplicas del frontend por PR y observa el sync"
+      - "Borra el namespace y observa la reconstrucción; mide el tiempo"
+      - "Mergea el PR automático de P2 y verifica el nuevo tag desplegado"
+    acceptance: ["Auto-reparación demostrada con captura"]
+  - key: P3-04
+    title: "Tráfico de entrada con Gateway API y TLS"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:gitops", "area:kubernetes"]
+    why: "Gateway API reemplaza a Ingress como estándar para exponer servicios."
+    learn: ["GatewayClass, Gateway, HTTPRoute", "Envoy Gateway", "ACME y Let's Encrypt"]
+    steps:
+      - "Instala Envoy Gateway vía Argo CD"
+      - "Gateway + HTTPRoute hacia el Service frontend"
+      - "Dominio: usa uno propio o `sslip.io` con la IP pública del LoadBalancer"
+      - "cert-manager con ClusterIssuer Let's Encrypt staging, luego producción"
+    acceptance: ["La tienda abre por HTTPS con certificado válido"]
+  - key: P3-05
+    title: "Secretos desde Key Vault con External Secrets y Workload Identity"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:gitops", "area:seguridad"]
+    why: "Los secretos no deben estar en Git, ni siquiera cifrados si se puede evitar."
+    learn: ["External Secrets Operator", "Workload Identity (ServiceAccount ↔ managed identity)", "Rotación"]
+    steps:
+      - "User-assigned identity con federated credential para el ServiceAccount de ESO (agrégalo en P1)"
+      - "ClusterSecretStore apuntando a Key Vault"
+      - "ExternalSecret de prueba que crea un Secret de Kubernetes"
+      - "Cambia el valor en Key Vault y observa la actualización"
+    acceptance: ["Secret sincronizado sin credenciales en el cluster ni en Git"]
+  - key: P3-06
+    title: "Canary del frontend con Argo Rollouts"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:gitops", "area:sre"]
+    why: "Liberar a un porcentaje de usuarios primero limita el impacto de un mal despliegue."
+    learn: ["Rollout vs Deployment", "Pasos de canary y pausas", "AnalysisTemplate"]
+    steps:
+      - "Instala Argo Rollouts vía Argo CD"
+      - "Convierte el frontend a Rollout con pasos 10% → 50% → 100%"
+      - "Integra el traffic splitting con Gateway API (plugin) o por réplicas"
+      - "Prueba un rollout y un abort manual"
+      - "El análisis automático con Prometheus se conecta en P4-07"
+    acceptance: ["Rollout progresivo visible en `kubectl argo rollouts get`"]
+  - key: P3-07
+    title: "README con evidencia"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:docs"]
+    why: "Mostrar el flujo GitOps completo."
+    steps: ["Diagrama del flujo commit → Argo → cluster", "GIF de auto-reparación", "Capturas de canary", "ADRs (Helm vs manifiestos renderizados, Gateway API vs Ingress)"]
+    acceptance: ["README completo según convenciones"]

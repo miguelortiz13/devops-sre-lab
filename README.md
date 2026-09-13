@@ -23,7 +23,7 @@ Ver [ADR-0001](docs/adr/0001-sistema-base.md) y [ADR-0002](docs/adr/0002-nube-pr
 
 | # | Repo | Tema | Estado |
 |---|---|---|---|
-| P0 | [`local-k8s-lab`](https://github.com/miguelortiz13/local-k8s-lab) | Entorno local reproducible (kind, Makefile, Online Boutique) | 🟨 |
+| P0 | [`local-k8s-lab`](https://github.com/miguelortiz13/local-k8s-lab) | Entorno local reproducible (kind, Makefile, Online Boutique) | ✅ |
 | P1 | `infra-azure-terraform` | IaC: AKS, ACR, VNet, Key Vault con Terraform + pipeline | ⬜ |
 | P2 | `online-boutique-ci` | CI de imágenes: build, escaneo, SBOM, firma, push | ⬜ |
 | P3 | `platform-gitops` | Argo CD, Kustomize, Gateway API, secretos, canary | ⬜ |
@@ -34,6 +34,18 @@ Ver [ADR-0001](docs/adr/0001-sistema-base.md) y [ADR-0002](docs/adr/0002-nube-pr
 | P8 | `infra-aws-terraform` | Portabilidad: la misma plataforma en AWS EKS | ⬜ |
 
 Estados: ⬜ pendiente · 🟨 en curso · ✅ terminado.
+
+## Backlog: épicas y tareas
+
+El trabajo está organizado en **[issues de este repo](https://github.com/miguelortiz13/devops-sre-lab/issues)**:
+
+- **Épica** (`tipo:épica`): una por proyecto, con objetivo y criterio de terminado.
+- **Tarea** (`tipo:tarea`): sub-issue de su épica, con *por qué*, conceptos, paso a paso con checkboxes y criterios de aceptación. Las que tienen `hazlo-tú` son para ejecutarlas tú.
+- **Milestones**: las 4 fases del roadmap.
+
+El backlog es código: vive en [`backlog/`](backlog/) (un YAML por épica) y se
+publica con `scripts/sync_backlog.py` (idempotente; `--dry-run` para ver qué
+haría). Para agregar o cambiar tareas se edita el YAML y se vuelve a ejecutar.
 
 El plan detallado (orden, entregables, criterios de terminado) está en
 [ROADMAP.md](ROADMAP.md). Las reglas comunes a todos los repos están en

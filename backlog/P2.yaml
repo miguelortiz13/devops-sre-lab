@@ -1,0 +1,99 @@
+id: P2
+title: "online-boutique-ci — CI de contenedores"
+repo: online-boutique-ci
+milestone: "Fase 1 — Fundamentos"
+labels: ["area:ci-cd"]
+objective: |
+  Pipeline que, al cambiar un microservicio, lo construye, lo prueba, lo
+  escanea, genera su SBOM, lo firma, lo publica en ACR y propone el cambio de
+  versión al repositorio GitOps.
+done_when:
+  - "Cambiar un servicio produce una imagen firmada en ACR"
+  - "Se abre automáticamente un PR en `platform-gitops` con el nuevo tag"
+learn: ["Docker multi-stage y buildx", "Monorepos y matrices", "Supply chain security (Trivy, SBOM, cosign)", "Versionado de artefactos"]
+tasks:
+  - key: P2-01
+    title: "Fork y entender la estructura de Online Boutique"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:ci-cd"]
+    why: "No se puede automatizar lo que no se entiende: cada servicio usa otro lenguaje y otro Dockerfile."
+    learn: ["Monorepo polyglot", "Dockerfiles multi-stage"]
+    steps:
+      - "Fork de GoogleCloudPlatform/microservices-demo con nombre `online-boutique-ci`"
+      - "Desactiva los workflows heredados que no uses"
+      - "Recorre `src/*/Dockerfile`: anota lenguaje, imagen base y etapas en `docs/servicios.md`"
+      - "Construye localmente uno: `docker build -t frontend:local src/frontend`"
+    acceptance: ["`docs/servicios.md` con tabla de los 11 servicios"]
+  - key: P2-02
+    title: "Detectar servicios modificados y construir en matriz"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:ci-cd"]
+    why: "Construir 11 imágenes por cada cambio de una línea desperdicia minutos y dinero."
+    learn: ["dorny/paths-filter", "Matrices dinámicas con fromJSON", "Cache de buildx en GitHub Actions"]
+    steps:
+      - "Job `changes` que produce la lista de servicios modificados"
+      - "Job `build` con `strategy.matrix` dinámica a partir de esa lista"
+      - "`docker/setup-buildx-action` + `docker/build-push-action` con `cache-from/cache-to: type=gha`"
+      - "Mide el tiempo con y sin cache"
+    acceptance: ["Un cambio en `src/frontend` solo construye frontend"]
+  - key: P2-03
+    title: "Lint de Dockerfiles y tests"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:ci-cd"]
+    why: "Fallar temprano y barato antes de construir y publicar."
+    learn: ["hadolint", "Tests por lenguaje en CI"]
+    steps:
+      - "hadolint en cada Dockerfile modificado"
+      - "Ejecuta los tests existentes al menos de los servicios Go (frontend, productcatalog, shipping)"
+      - "Haz que el build dependa de lint y tests"
+    acceptance: ["Un Dockerfile con mala práctica hace fallar el PR"]
+  - key: P2-04
+    title: "Escaneo de vulnerabilidades con Trivy y SBOM con Syft"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:ci-cd", "area:seguridad"]
+    why: "Saber qué contiene una imagen y qué CVEs tiene es requisito básico de supply chain."
+    learn: ["CVE y severidades", "SBOM (SPDX/CycloneDX)", "SARIF y GitHub Code Scanning"]
+    steps:
+      - "Trivy sobre la imagen construida, falla con CRITICAL corregibles (`ignore-unfixed`)"
+      - "Sube el resultado SARIF a la pestaña Security"
+      - "Genera SBOM con Syft y súbelo como artefacto"
+      - "Documenta la política de excepciones (`.trivyignore` con justificación)"
+    acceptance: ["Resultados visibles en Security → Code scanning", "SBOM descargable del run"]
+  - key: P2-05
+    title: "Publicar en ACR vía OIDC y firmar con cosign"
+    who: "Tú"
+    estimate: "3 h"
+    labels: ["area:ci-cd", "area:seguridad"]
+    why: "Una imagen firmada permite que el cluster rechace lo que no salió de tu pipeline (se aplica en P6)."
+    learn: ["Tags inmutables (SHA) vs semver", "cosign keyless con Sigstore", "Attestations"]
+    steps:
+      - "Federated credential para este repo con rol `AcrPush` sobre el ACR de P1"
+      - "Tag `sha-<corto>` en cada push a main y `vX.Y.Z` en releases"
+      - "`cosign sign` keyless con el digest (no con el tag)"
+      - "Adjunta el SBOM como attestation (`cosign attest`)"
+      - "Verifica localmente con `cosign verify` indicando identidad y issuer"
+    acceptance: ["`cosign verify` exitoso sobre una imagen del ACR"]
+  - key: P2-06
+    title: "PR automático al repo GitOps con el nuevo tag"
+    who: "Tú"
+    estimate: "2 h"
+    labels: ["area:ci-cd", "area:gitops"]
+    why: "Separa CI (construir) de CD (desplegar): el cambio de versión queda revisable en Git."
+    learn: ["Patrón de promoción por PR", "GitHub App o fine-grained token con permisos mínimos"]
+    steps:
+      - "Crea un fine-grained token (o GitHub App) con acceso solo a `platform-gitops`"
+      - "Job final que clona `platform-gitops`, actualiza el tag con `kustomize edit set image` y abre PR"
+      - "Hazlo después de crear el repo de P3 (puede quedar bloqueada hasta entonces)"
+    acceptance: ["PR abierto automáticamente en platform-gitops"]
+  - key: P2-07
+    title: "README con evidencia"
+    who: "Tú"
+    estimate: "1–2 h"
+    labels: ["area:docs"]
+    why: "Mostrar el pipeline y la cadena de confianza de extremo a extremo."
+    steps: ["Diagrama del pipeline", "Capturas de run, Security tab, firma verificada y PR automático", "Tiempos de build con/sin cache", "Lecciones aprendidas"]
+    acceptance: ["README completo según convenciones"]
