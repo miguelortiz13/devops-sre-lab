@@ -24,7 +24,7 @@ Ver [ADR-0001](docs/adr/0001-sistema-base.md) y [ADR-0002](docs/adr/0002-nube-pr
 | # | Repo | Tema | Estado |
 |---|---|---|---|
 | P0 | [`local-k8s-lab`](https://github.com/miguelortiz13/local-k8s-lab) | Entorno local reproducible (kind, Makefile, Online Boutique) | ✅ |
-| P1 | `infra-azure-terraform` | IaC: AKS, ACR, VNet, Key Vault con Terraform + pipeline | ⬜ |
+| P1 | [`infra-azure-terraform`](https://github.com/miguelortiz13/infra-azure-terraform) | IaC: AKS, ACR, VNet, Key Vault con Terraform + pipeline | 🟨 |
 | P2 | `online-boutique-ci` | CI de imágenes: build, escaneo, SBOM, firma, push | ⬜ |
 | P3 | `platform-gitops` | Argo CD, Kustomize, Gateway API, secretos, canary | ⬜ |
 | P4 | `observability-stack` | Prometheus, Grafana, Loki, Tempo, OpenTelemetry | ⬜ |
